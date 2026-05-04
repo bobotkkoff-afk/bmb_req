@@ -1,8 +1,8 @@
 import logging
 import re
 import os
-from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, CallbackQueryHandler, ContextTypes, filters
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
@@ -36,6 +36,7 @@ BANKS = {
 
     # Райффайзен
     "райфф":            ("🟡", "Райффайзен"),
+    "райф":             ("🟡", "Райффайзен"),
     "райффайзен":       ("🟡", "Райффайзен"),
     "raiff":            ("🟡", "Райффайзен"),
     "raiffeisen":       ("🟡", "Райффайзен"),
@@ -71,6 +72,8 @@ BANKS = {
     # Вайлдберис Банк
     "вайлдберис":       ("🟣", "Вайлдберис Банк"),
     "wildberries":      ("🟣", "Вайлдберис Банк"),
+    "вб":               ("🟣", "Вайлдберис Банк"),
+    "вб банк":          ("🟣", "Вайлдберис Банк"),
     "wb":               ("🟣", "Вайлдберис Банк"),
 
     # Совкомбанк
@@ -164,7 +167,8 @@ def format_requisites(text: str) -> str:
     if requisite:
         lines.append(f"💳 Реквизиты: <code>{requisite}</code>")
     lines.append(f"🏦 Банк: {bank_name} {bank_emoji}")
-    lines.append("❗ Пожалуйста, будьте внимательны, не ошибитесь банком ❗")
+    lines.append("")
+    lines.append("⛔ Пожалуйста, будьте внимательны, не ошибитесь банком ⛔")
 
     return "\n".join(lines)
 
@@ -184,14 +188,70 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
+    amount, currency, requisite, req_type = parse_all(text)
+    bank_emoji, bank_name = detect_bank(text)
+
+    if bank_name == "Неизвестный банк" and (amount or requisite):
+        context.user_data["pending_text"] = text
+        keyboard = [
+            [InlineKeyboardButton("🟢 Сбербанк", callback_data="bank:🟢:Сбербанк"),
+             InlineKeyboardButton("🟡 Т-Банк", callback_data="bank:🟡:Т-Банк")],
+            [InlineKeyboardButton("🔴 Альфа-Банк", callback_data="bank:🔴:Альфа-Банк"),
+             InlineKeyboardButton("🔵 ВТБ", callback_data="bank:🔵:ВТБ")],
+            [InlineKeyboardButton("🟡 Райффайзен", callback_data="bank:🟡:Райффайзен"),
+             InlineKeyboardButton("🟠 ОТП Банк", callback_data="bank:🟠:ОТП Банк")],
+            [InlineKeyboardButton("🔵 Озон Банк", callback_data="bank:🔵:Озон Банк"),
+             InlineKeyboardButton("🔵 Газпромбанк", callback_data="bank:🔵:Газпромбанк")],
+            [InlineKeyboardButton("🔴 Яндекс Банк", callback_data="bank:🔴:Яндекс Банк"),
+             InlineKeyboardButton("🔴 МТС-Банк", callback_data="bank:🔴:МТС-Банк")],
+            [InlineKeyboardButton("🟣 ЮMoney", callback_data="bank:🟣:ЮMoney"),
+             InlineKeyboardButton("🟣 Вайлдберис Банк", callback_data="bank:🟣:Вайлдберис Банк")],
+            [InlineKeyboardButton("🟠 Совкомбанк", callback_data="bank:🟠:Совкомбанк"),
+             InlineKeyboardButton("🔵 Уралсиб", callback_data="bank:🔵:Уралсиб")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            "🤔 Не удалось определить банк. Выбери из списка:",
+            reply_markup=reply_markup
+        )
+        return
+
     result = format_requisites(text)
     await update.message.reply_text(result, parse_mode="HTML")
+
+
+async def handle_bank_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data.split(":", 2)
+    bank_emoji = data[1]
+    bank_name = data[2]
+
+    text = context.user_data.get("pending_text", "")
+    amount, currency, requisite, req_type = parse_all(text)
+
+    if not amount and not requisite:
+        await query.edit_message_text("❌ Не удалось восстановить данные. Отправь реквизиты заново.")
+        return
+
+    lines = []
+    if amount:
+        lines.append(f"✅ Сумма: {amount:,} {currency}".replace(",", " "))
+    if requisite:
+        lines.append(f"💳 Реквизиты: <code>{requisite}</code>")
+    lines.append(f"🏦 Банк: {bank_name} {bank_emoji}")
+    lines.append("")
+    lines.append("⛔ Пожалуйста, будьте внимательны, не ошибитесь банком ⛔")
+
+    await query.edit_message_text("\n".join(lines), parse_mode="HTML")
 
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(CallbackQueryHandler(handle_bank_selection, pattern="^bank:"))
     print("✅ Бот запущен...")
     app.run_polling()
 
