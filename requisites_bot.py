@@ -39,7 +39,6 @@ def detect_bank(text: str):
 
 
 def parse_all(text: str):
-    # Ищем телефон СБП: 11 цифр начинающихся на 7 или 8
     phone_match = re.search(r'(?<!\d)(\+?[78])[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}(?!\d)', text)
     phone = None
     phone_str = ""
@@ -49,7 +48,6 @@ def parse_all(text: str):
             phone = f"+7{digits[1:]}"
             phone_str = phone_match.group()
 
-    # Ищем номер карты: ровно 16 цифр (подряд или по 4 через пробел/дефис)
     card_match = re.search(r'(?<!\d)(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4})(?!\d)', text)
     card = None
     card_str = ""
@@ -60,24 +58,20 @@ def parse_all(text: str):
         else:
             card = None
 
-    # Убираем реквизиты из текста для поиска суммы
     clean = text
     if phone_str:
         clean = clean.replace(phone_str, ' ')
     if card_str:
         clean = clean.replace(card_str, ' ')
-    # Убираем названия банков
     for kw in BANKS:
         clean = re.sub(kw, ' ', clean, flags=re.IGNORECASE)
 
-    # Ищем сумму — число 2-7 цифр
     amount = None
     currency = "RUB"
     amount_match = re.search(r'(?<!\d)(\d{2,7})(?!\d)', clean)
     if amount_match:
         amount = int(amount_match.group())
 
-    # Валюта
     cur_match = re.search(r'\b(rub|руб(?:лей|ля)?|₽|usdt|usd|eur)\b', text, re.IGNORECASE)
     if cur_match:
         raw = cur_match.group().upper()
@@ -112,12 +106,12 @@ def format_requisites(text: str) -> str:
 
     lines = []
     if amount:
-        lines.append(f"Сумма: {amount:,} {currency}".replace(",", " "))
+        lines.append(f"✅ Сумма: {amount:,} {currency}".replace(",", " "))
     if requisite:
-        lines.append(f"Реквизиты: <code>{requisite}</code>")
-    lines.append(f"Банк: {bank_name} {bank_emoji}")
+        lines.append(f"💳 Реквизиты: <code>{requisite}</code>")
+    lines.append(f"🏛️ Банк: {bank_name} {bank_emoji}")
     lines.append("")
-    lines.append("⛔ Пожалуйста, будьте внимательны, не ошибитесь банком ⛔")
+    lines.append("🔔 Пожалуйста, будьте внимательны, не ошибитесь банком 🔔")
 
     return "\n".join(lines)
 
