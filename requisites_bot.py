@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, Con
 
 # ================================
 # ВСТАВЬ СВОЙ ТОКЕН СЮДА
-BOT_TOKEN = "ВАШ_ТОКЕН_ОТ_BOTFATHER"
+BOT_TOKEN = "8630277747:AAF4kFdh1WWWZ_E_S1WxAJTk6YtqJEUErZ8"
 # ================================
 
 logging.basicConfig(level=logging.INFO)
