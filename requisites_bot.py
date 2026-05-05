@@ -131,9 +131,11 @@ def parse_all(text: str):
 
     amount = None
     currency = "RUB"
-    amount_match = re.search(r'(?<!\d)(\d{2,7})(?!\d)', clean)
+    # Support amounts with spaces: "4 000", "10 000", "1 000 000"
+    # Support amounts with spaces like '4 000' or '100 000'
+    amount_match = re.search(r'(?<!\d)(\d{1,3}(?:[\u0020\u00a0]\d{3})+|\d{2,7})(?!\d)', clean)
     if amount_match:
-        amount = int(amount_match.group())
+        amount = int(re.sub(r'[^\d]', '', amount_match.group()))
 
     cur_match = re.search(r'\b(rub|руб(?:лей|ля)?|₽|usdt|usd|eur)\b', text, re.IGNORECASE)
     if cur_match:
@@ -162,7 +164,7 @@ def build_result(amount, currency, requisite, bank_name, bank_emoji) -> str:
         lines.append(f"💳 Реквизиты: <code>{requisite}</code>")
     lines.append(f"🏦 Банк: {bank_name} {bank_emoji}")
     lines.append("")
-    lines.append("⛔ Пожалуйста, будьте внимательны, не ошибитесь банком ⛔")
+    lines.append("⛔ Пожалуйста, будьте внимательны, не ошибитесь банком и суммой ⛔")
     return "\n".join(lines)
 
 
